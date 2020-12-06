@@ -1,0 +1,171 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Posts on Alexsander Lima</title>
+        <link>https://aelxtpt.github.io/posts/</link>
+        <description>Recent content in Posts on Alexsander Lima</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <lastBuildDate>Sun, 20 Oct 2019 20:31:43 +0000</lastBuildDate>
+        <atom:link href="https://aelxtpt.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+        
+        <item>
+            <title>Data Breakpoint no .Net Framework com WinDbg</title>
+            <link>https://aelxtpt.github.io/posts/databreakpont-dot-net/</link>
+            <pubDate>Sun, 20 Oct 2019 20:31:43 +0000</pubDate>
+            
+            <guid>https://aelxtpt.github.io/posts/databreakpont-dot-net/</guid>
+            <description>Você sabia que o visual studio tem uma funcionalidade chamada Data Breakpoint onde você consegue colocar um breakpoint em um dado na memória e sempre que ele for acessado você consegue ver a stack e tudo mais?
+Eu nunca soube até eu precisar usar essa funcionalidade. O cenário era que eu tinha uma lista de itens onde somente um item dessa lista era alterado toda hora e eu não conseguia desvendar quem estava alterando.</description>
+            <content type="html"><![CDATA[<p>Você sabia que o visual studio tem uma funcionalidade chamada <strong>Data Breakpoint</strong> onde você consegue colocar um breakpoint em um dado na memória e sempre que ele for acessado você consegue ver a stack e tudo mais?</p>
+<p>Eu nunca soube até eu precisar usar essa funcionalidade. O cenário era que eu tinha uma lista de itens onde somente um item dessa lista era alterado toda hora e eu não conseguia desvendar quem estava alterando.</p>
+<p>Além de ver que essa funcionalidade estava inativa no meu Visual studio 2017, fui pesquisar e descobri que isso só está disponível para o .Net core 3.0+&hellip; Que infelicidade :/
+<strong><a href="https://developercommunity.visualstudio.com/idea/518713/support-data-breakpoints-for-net-framework.html">Search#1</a></strong>
+<strong><a href="https://docs.microsoft.com/en-us/visualstudio/debugger/using-breakpoints?view=vs-2019#BKMK_set_a_data_breakpoint_native_cplusplus_only">Search#2</a></strong></p>
+<p>Na maioria das vezes em um mundo feliz, em um projeto pequeno e quando você não está cansado de olhar para a tela do computador, o <strong>Find References</strong> do visual studio resolve o problema.</p>
+<p>Mas não era o caso e eu perdi um bom tempo nisso. Então eu decedi apelar pro WinDbg&hellip;nada melhor que um debugger de gente grande, certo?</p>
+<p>Irei demonstrar usando um código simples.</p>
+<p>Para fazer isso no WinDbg não tem muito segredo, só meia dúzia de comandos.
+Ah&hellip;Estou assumindo que você já tem alguma experiência com WinDbg para .Net, caso contrário recomendo ler os <a href="http://1bit.com.br/content.1bit/windbg1">posts do Rodrigo Strauss</a>.</p>
+<p>Para .net basta carregar a dll sos.dll se for .net framework 4+.
+Para fazer isso basta dar um load na dll e depois um reload.</p>
+<pre><code>.load &lt;caminho para a dll sos.dll&gt; x86 ou x64 dependendo do programa
+.reload /f
+</code></pre><p>Código de exemplo:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-csharp" data-lang="csharp"><span style="color:#66d9ef">using</span> System;
+<span style="color:#66d9ef">using</span> System.Collections.Generic;
+
+<span style="color:#66d9ef">namespace</span> blog_data_breakpoint
+{
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Class1</span>
+    {
+        List&lt;<span style="color:#66d9ef">uint</span>&gt; _myValues = <span style="color:#66d9ef">new</span> List&lt;<span style="color:#66d9ef">uint</span>&gt;();
+        
+        <span style="color:#66d9ef">public</span> Class1()
+        {
+            _myValues.Add(<span style="color:#ae81ff">1</span>);
+            _myValues.Add(<span style="color:#ae81ff">2</span>);
+            _myValues.Add(<span style="color:#ae81ff">3</span>);
+        }
+
+        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> Unknown()
+        {
+            _myValues[<span style="color:#ae81ff">1</span>] += <span style="color:#ae81ff">1</span>;
+        }
+
+        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">uint</span> GetValueFromList()
+        {
+            <span style="color:#66d9ef">return</span> _myValues[<span style="color:#ae81ff">1</span>];
+        }
+    }
+
+    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Worker</span>
+    {
+        Class1 _instance = <span style="color:#66d9ef">new</span> Class1();
+
+        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> DoSomething()
+        {
+            <span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>)
+            {
+                Console.WriteLine(<span style="color:#e6db74">&#34;Press any key to continue&#34;</span>);
+                Console.ReadLine();
+
+                _instance.Unknown();
+
+                Console.WriteLine(<span style="color:#e6db74">$&#34;Current Value: {_instance.GetValueFromList()}&#34;</span>);
+            }
+        }
+    }
+}
+</code></pre></div><p>No nosso código de exemplo, basicamente a função Unknown vai ficar incrementando no índice 1 e queremos ver quem altera esse índice.</p>
+<p>1- Primeiro precisamos fazer um dumpheap para pegar o address da nossa classe.
+Fazemos isso com o comando: <strong>!dumpheap</strong>.</p>
+<pre><code> Address       MT     Size
+...
+02b3244c 72d646c8       28     
+02b32468 72d61848       16     
+02b32478 72d6480c       16     
+02b32488 72d64888       12     
+02b32494 72d624e4       70     
+02b324dc 72d62d74       12     
+02b324e8 00c34de4       12     
+02b324f4 00c34e70       12     
+...
+
+Statistics:
+      MT    Count    TotalSize Class Name
+72d65468        1           12 System.Collections.Generic.GenericEqualityComparer`1[[System.String, mscorlib]]
+72d64888        1           12 System.Security.HostSecurityManager
+72d63d78        1           12 System.Collections.Generic.ObjectEqualityComparer`1[[System.Type, mscorlib]]
+00c34e70        1           12 blog_data_breakpoint.Class1
+...
+</code></pre><p>Podemos ver que nossa <strong>Class1</strong> está no method table de endereço <strong>02b324f4</strong>.</p>
+<p>2- Agora precisamos descobrir o endereço da nossa variável na qual queremos colocar o breakpoint.
+Para isso, vamos ver o que tem no endereço que achamos da <strong>Class1</strong>.
+Fazemos isso com o comando: <strong>!dumpobj 02b324f4</strong>.</p>
+<pre><code>Name:        blog_data_breakpoint.Class1
+MethodTable: 00c34e70
+EEClass:     00c3138c
+Size:        12(0xc) bytes
+File:        ...\blog_data_breakpoint\bin\x86\Release\blog_data_breakpoint.exe
+Fields:
+      MT    Field   Offset                 Type VT     Attr    Value Name
+72d7b82c  4000001        4 ...Int32, mscorlib]]  0 instance 02b32500 _myValues
+</code></pre><p>Legal, ali diz que o endereço é 02b32500. Mas como ter certeza que é ele mesmo antes de colocar o breakpoint?
+Simples, vamos executar um &ldquo;display&rdquo; no endereço: <strong>dd 02b32500</strong>.</p>
+<pre><code>02b32500  72d7b82c 02b32524 00000000 00000003
+02b32510  00000003 00000000 72dbb81c 00000000
+02b32520  00000000 72dbb81c 00000004 00000001
+02b32530  00000002 00000003 00000000 80000000
+02b32540  72d624e4 00000019 00720050 00730065
+02b32550  00200073 006e0061 00200079 0065006b
+02b32560  00200079 006f0074 00630020 006e006f
+02b32570  00690074 0075006e 00000065 80000000
+</code></pre><p>Opa! Sabemos que os valores em _myValues são 1, 2 e 3 e não é o que estamos vendo.
+Isso porque _myValues é do tipo System.Collections.Generic.List e não um double world (4 bytes).</p>
+<p>3- Certo, então vamos fazer a mesma coisa que fizemos para Class1.
+Vamos ver o que tem dentro do endereço usado o comando dumpobj: <strong>!dumpobj 02b32500</strong>.</p>
+<pre><code>Name:        System.Collections.Generic.List`1[[System.UInt32, mscorlib]]
+MethodTable: 72d7b82c
+EEClass:     72e70730
+Size:        24(0x18) bytes
+File:        C:\Windows\Microsoft.Net\assembly\GAC_32\mscorlib\v4.0_4.0.0.0__b77a5c561934e089\mscorlib.dll
+Fields:
+      MT    Field   Offset                 Type VT     Attr    Value Name
+72dbb81c  40018a0        4      System.UInt32[]  0 instance 02b32524 _items
+72d642a8  40018a1        c         System.Int32  1 instance        3 _size
+72d642a8  40018a2       10         System.Int32  1 instance        3 _version
+72d62734  40018a3        8        System.Object  0 instance 00000000 _syncRoot
+72dbb81c  40018a4        0      System.UInt32[]  0   shared   static _emptyArray
+    &gt;&gt; Domain:Value dynamic statics NYI 00d60b88:NotInit  &lt;&lt;
+</code></pre><p>Podemos ver que agora temos várias informações como _size, _items e o tipo de _items que é System.UInt32[].
+Agora sim temos o endereço do nosso array de inteiros: <strong>02b32524</strong>.</p>
+<p>Vamos executar um &ldquo;display&rdquo; nesse endereço:
+<strong>dd /c 1 02b32524</strong>.</p>
+<pre><code>02b32524  72dbb81c
+02b32528  00000004
+02b3252c  00000001
+02b32530  00000004
+02b32534  00000003
+</code></pre><p>Podemos ver que agora nossos valores 1, 4 (foi executado 2x) e 3 estão presentes. Vale lembrar que System.UInt32 é um tipo também e por isso os primeiros dwords são algumas &ldquo;tralhas&rdquo; como por exemplo 72dbb81c é o method table do tipo.</p>
+<p>Agora é hora da magia negra!
+Iremos colocar um breakpoint access no endereço 02b32530( índice 1 ) e toda vez que alguém alterar ou ler ele, nosso breakpoint será acionado.</p>
+<p>Fazemos isso com o comando: <strong>ba r4 02b32530</strong>.</p>
+<p>E quando executamos o programa e digitamos alguma coisa temos nosso breakpoint acionado:</p>
+<pre><code>Breakpoint 0 hit
+eax=02b32524 ebx=02b324e8 ecx=02b346cc edx=00000000 esi=02b32500 edi=00000004
+eip=02980952 esp=00aff3cc ebp=00aff3e8 iopl=0         nv up ei pl nz na pe nc
+cs=0023  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00000206
+02980952 47              inc     edi
+</code></pre><p>Opa! Acionou! Quem foi que leu ou alterou nosso índice 1? Olhemos a stack&hellip;
+Comando: <strong>!clrstack</strong>.</p>
+<pre><code>Child SP       IP Call Site
+00aff3cc 02980952 blog_data_breakpoint.Worker.DoSomething() [...blog_data_breakpoint\blog_data_breakpoint\Class1.cs @ 39]
+00aff3f0 0298087d blog_data_breakpoint.Program.Main(System.String[]) [...\blog_data_breakpoint\blog_data_breakpoint\Program.cs @ 15]
+00aff570 7449f056 [GCFrame: 00aff570] 
+</code></pre><p>E achamos a danada! Quem acessou nosso índice foi a função <strong>_instance.Unknown();</strong> linha 39. E isso está dentro do método DoSomething da classe Worker.</p>
+<p>Até a próxima!</p>
+]]></content>
+        </item>
+        
+    </channel>
+</rss>

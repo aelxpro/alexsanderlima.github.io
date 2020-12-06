@@ -3,15 +3,37 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://aelxtpt.github.io/</loc>
+    <loc>https://aelxtpt.github.io/about/</loc>
+    <lastmod>2020-12-05T22:52:22-03:00</lastmod>
   </url>
   
   <url>
-    <loc>https://aelxtpt.github.io/categories/</loc>
+    <loc>https://aelxtpt.github.io/</loc>
+    <lastmod>2019-10-20T20:31:43+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://aelxtpt.github.io/tags/c#/</loc>
+    <lastmod>2019-10-20T20:31:43+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://aelxtpt.github.io/posts/databreakpont-dot-net/</loc>
+    <lastmod>2019-10-20T20:31:43+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://aelxtpt.github.io/posts/</loc>
+    <lastmod>2019-10-20T20:31:43+00:00</lastmod>
   </url>
   
   <url>
     <loc>https://aelxtpt.github.io/tags/</loc>
+    <lastmod>2019-10-20T20:31:43+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://aelxtpt.github.io/categories/</loc>
   </url>
   
 </urlset>
